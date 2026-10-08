@@ -23,10 +23,15 @@ if [ ! -e "$CONFIG" ]; then
   done
   platform=macos
   [ "$(uname -s)" = Linux ] && platform=ubuntu
+  python=/usr/bin/python3
+  if [ "$platform" = macos ]; then
+    python=$(command -v python3 || true)
+    [ -n "$python" ] || python=/usr/bin/python3
+  fi
   {
     printf 'schema = 1\nchannel = "signed-gds"\ncommand_timeout_seconds = 600\n\n'
     if [ -n "$estate" ]; then
-      printf '[gds]\nenabled = true\nplatform = "%s"\nargv = ["/usr/bin/python3", "%s/modules/macos-ubuntu-bootstrap/scripts/managed_cli.py", "install", "--platform", "%s"]\n\n' "$platform" "$estate" "$platform"
+      printf '[gds]\nenabled = true\nplatform = "%s"\nargv = ["%s", "%s/modules/macos-ubuntu-bootstrap/scripts/managed_cli.py", "install", "--platform", "%s"]\n\n' "$platform" "$python" "$estate" "$platform"
     else
       printf '[gds]\nenabled = false\nplatform = "%s"\nargv = []\n\n' "$platform"
     fi

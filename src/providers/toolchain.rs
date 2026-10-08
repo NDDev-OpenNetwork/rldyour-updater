@@ -5,8 +5,8 @@ pub fn run<R: CommandRunner>(policy: &Policy, runner: &R) -> ActionResult {
     let mut lines = Vec::new();
     for (name, program) in [
         ("vllm", user_binary("vllm")),
-        ("ollama", PathBuf::from("/usr/bin/ollama")),
-        ("nvcc", PathBuf::from("/usr/local/cuda/bin/nvcc")),
+        ("ollama", ollama_binary()),
+        ("nvcc", nvcc_binary()),
     ] {
         let argv = vec![program.to_string_lossy().into_owned(), "--version".into()];
         let output = runner.run(
@@ -40,4 +40,20 @@ fn user_binary(name: &str) -> PathBuf {
         .unwrap_or_default()
         .join(".local/bin")
         .join(name)
+}
+
+fn ollama_binary() -> PathBuf {
+    if cfg!(target_os = "macos") {
+        PathBuf::from("/opt/homebrew/bin/ollama")
+    } else {
+        PathBuf::from("/usr/bin/ollama")
+    }
+}
+
+fn nvcc_binary() -> PathBuf {
+    if cfg!(target_os = "macos") {
+        PathBuf::from("/opt/homebrew/bin/nvcc")
+    } else {
+        PathBuf::from("/usr/local/cuda/bin/nvcc")
+    }
 }
