@@ -21,3 +21,10 @@ unsigned fallback, self-signed response or automatic trust-reset is supported.
 Standalone Debian records use package, version, url, bytes and sha256. Mutable
 latest URLs are not approved artifact identities. Do not add compatibility-sensitive
 GPU/Python/model changes without a separately tested native contract.
+
+Updater self-updates use an optional updater_binaries table in the signed payload:
+platform (linux/x86_64 or macos/arm64), stable version, explicit release URL,
+length and SHA256. Pass --updater-binaries to catalog-build to include reviewed
+records. A higher version is downloaded, verified and atomically published only
+at the managed installation path; the current run and all other apps stay alive.
+The source-installer bootstrap trust check remains a separate operator step.
