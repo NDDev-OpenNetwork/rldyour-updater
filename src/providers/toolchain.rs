@@ -14,14 +14,13 @@ pub fn run<R: CommandRunner>(policy: &Policy, runner: &R) -> ActionResult {
             None,
             Duration::from_secs(policy.command_timeout_seconds.min(30)),
         );
-        lines.push(format!(
-            "{name}: {}",
-            if output.ok {
-                output.stdout.lines().next().unwrap_or("present")
-            } else {
-                "unavailable or needs review"
-            }
-        ));
+        let detail = if output.ok {
+            output.stdout.lines().next().unwrap_or("present").to_owned()
+        } else {
+            let reason = output.stderr.lines().next().unwrap_or("command failed");
+            format!("unavailable or needs review ({reason})")
+        };
+        lines.push(format!("{name}: {detail}"));
     }
     ActionResult {
         action: "toolchain-observe".into(),
