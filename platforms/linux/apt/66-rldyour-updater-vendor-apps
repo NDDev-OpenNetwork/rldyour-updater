@@ -1,0 +1,11 @@
+// Explicit eligibility for already configured signed vendor repositories.
+// Install only through an administrator-reviewed system setup.
+Unattended-Upgrade::Origins-Pattern {
+    "site=windsurf-stable.codeiumdata.com";
+    "site=nddev-opennetwork.github.io";
+    "site=aquasecurity.github.io";
+    "site=nvidia.github.io";
+    "site=developer.download.nvidia.com";
+    "site=download.docker.com";
+};
+Unattended-Upgrade::Automatic-Reboot "false";
