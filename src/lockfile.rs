@@ -8,6 +8,13 @@ use std::path::Path;
 pub struct RunLock {
     _file: File,
 }
+impl Drop for RunLock {
+    fn drop(&mut self) {
+        // Explicit release also covers a descriptor briefly inherited by a
+        // concurrently spawned child before its close-on-exec boundary.
+        let _ = fs2::FileExt::unlock(&self._file);
+    }
+}
 impl RunLock {
     pub fn acquire(dir: &Path) -> Result<Self, String> {
         crate::storage::private_dir(dir)?;
