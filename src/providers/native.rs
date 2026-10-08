@@ -99,6 +99,59 @@ pub fn run<R: CommandRunner>(policy: &Policy, runner: &R) -> Vec<ActionResult> {
             // Bound a bootstrap backlog; remaining candidates stay visible to the
             // native owner and will be selected by subsequent scheduled runs.
             names.truncate(policy.native.max_updates_per_run);
+            if kind == "--cask" {
+                let mut info_args = vec![
+                    root.into(),
+                    "info".into(),
+                    "--cask".into(),
+                    "--json=v2".into(),
+                ];
+                info_args.extend(names.iter().cloned());
+                let info = runner.run(&info_args, None, timeout);
+                let metadata: serde_json::Value = match serde_json::from_str(&info.stdout) {
+                    Ok(value) if info.ok && !info.truncated => value,
+                    _ => {
+                        results.push(ActionResult::failed(
+                            id,
+                            "cask integrity inventory unavailable",
+                        ));
+                        continue;
+                    }
+                };
+                let Some(casks) = metadata.get("casks").and_then(|v| v.as_array()) else {
+                    results.push(ActionResult::failed(id, "unknown cask metadata schema"));
+                    continue;
+                };
+                let hash_names: std::collections::BTreeSet<_> = casks
+                    .iter()
+                    .filter_map(|c| {
+                        let token = c.get("token")?.as_str()?;
+                        let hash = c.get("sha256")?.as_str()?;
+                        crate::catalog::decode_hex::<32>(hash)
+                            .ok()
+                            .map(|_| token.to_owned())
+                    })
+                    .collect();
+                let skipped = names
+                    .iter()
+                    .filter(|name| !hash_names.contains(*name))
+                    .count();
+                names.retain(|name| hash_names.contains(name));
+                if skipped > 0 {
+                    let mut result = ActionResult::observed(
+                        "homebrew-native-owner",
+                        format!(
+                            "{skipped} cask(s) without a static digest preserved for vendor self-updates or signed catalogue review"
+                        ),
+                    );
+                    result.changed = None;
+                    result.state = "native-owner".into();
+                    results.push(result);
+                }
+                if names.is_empty() {
+                    continue;
+                }
+            }
             let mut args = vec![root.into(), "upgrade".into(), kind.into()];
             if kind == "--cask" {
                 args.extend(["--no-quit".into(), "--require-sha".into()]);
