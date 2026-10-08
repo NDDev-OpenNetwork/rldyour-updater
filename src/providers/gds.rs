@@ -46,7 +46,11 @@ pub fn run<R: CommandRunner>(policy: &Policy, runner: &R) -> ActionResult {
         let companion = script.parent()?.join("ai_launchers.py");
         companion.is_file().then(|| {
             let python = argv.first().cloned().unwrap_or_else(|| "python3".into());
-            vec![python, companion.to_string_lossy().into_owned(), "install".into()]
+            vec![
+                python,
+                companion.to_string_lossy().into_owned(),
+                "install".into(),
+            ]
         })
     });
     let (stdout, stderr, companion_ok) = if let Some(companion_argv) = companion {
