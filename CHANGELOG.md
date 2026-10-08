@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1] - 2026-10-08
+
+- Qualify scheduled signed update transactions on native Ubuntu and macOS.
+- Handle bounded Homebrew backlogs, unhashable native-update casks and real exit codes.
+- Explicitly release native locks, expose bundled rustdoc, and keep nightly
+  updates free of PyTorch imports or GPU initialization.
+- Publish Linux x86_64 and macOS arm64 raw binaries with checksums for signed
+  catalogue self-updates.
+
 ## [0.2.0] - 2026-10-08
 
 - Authenticate an expiring Ed25519 catalogue with exact source SHA256/lengths,

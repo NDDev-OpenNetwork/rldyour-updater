@@ -1,6 +1,6 @@
 # rldyour-updater
 
-Rust 2024 coordinator for signed workstation updates. Current version: **0.2.0**.
+Rust 2024 coordinator for signed workstation updates. Current version: **0.2.1**.
 It runs as a short-lived scheduled process. Nightly runs do not import PyTorch or
 initialize GPU contexts; compatibility smoke checks stay explicit. There is no model supervisor or general
 system diagnostic aggregation.

@@ -1,6 +1,6 @@
 # rldyour-updater — agent contract
 
-Rust 2024 update coordinator; current release 0.2.0, policy schema 2. Public code
+Rust 2024 update coordinator; current release 0.2.1, policy schema 2. Public code
 and synthetic fixtures only. Private topology, credentials and observations stay
 outside this repository. Do not add a general system-health aggregator.
 

@@ -410,7 +410,7 @@ dependencies = [
 
 [[package]]
 name = "rldyour-updater"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "clap",
  "ed25519-dalek",
