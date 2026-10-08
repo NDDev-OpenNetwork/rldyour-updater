@@ -10,7 +10,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-const OUTPUT_LIMIT: usize = 16 * 1024;
+const OUTPUT_LIMIT: usize = 128 * 1024;
 pub struct Output {
     pub stdout: String,
     pub stderr: String,

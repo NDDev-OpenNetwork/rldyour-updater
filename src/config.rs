@@ -77,6 +77,11 @@ pub struct NativePolicy {
     pub homebrew: bool,
     #[serde(default)]
     pub flatpak: bool,
+    #[serde(default = "batch")]
+    pub max_updates_per_run: usize,
+}
+fn batch() -> usize {
+    10
 }
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -146,6 +151,9 @@ impl Policy {
         }
         if self.native.homebrew && !cfg!(target_os = "macos") {
             return Err("Homebrew provider is macOS only".into());
+        }
+        if self.native.homebrew && !(1..=50).contains(&self.native.max_updates_per_run) {
+            return Err("native update batch must be 1..=50".into());
         }
         if let Some(dir) = &self.state_dir {
             crate::storage::plain_path(dir)?;

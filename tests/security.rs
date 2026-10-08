@@ -218,7 +218,7 @@ fn runner_drains_large_output_and_deadline_contains_descendants() {
     );
     assert!(output.ok);
     assert!(output.truncated);
-    assert!(output.stdout.len() <= 16384);
+    assert!(output.stdout.len() <= 131072);
     let start = Instant::now();
     let output = runner.run(
         &["/bin/sh".into(), "-c".into(), "sleep 30 & wait".into()],
