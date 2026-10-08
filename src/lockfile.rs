@@ -22,6 +22,9 @@ impl RunLock {
         let file = options
             .open(&path)
             .map_err(|e| format!("open {}: {e}", path.display()))?;
+        #[cfg(unix)]
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| format!("protect lock file: {e}"))?;
         file.try_lock_exclusive()
             .map_err(|e| format!("lock {}: {e}", path.display()))?;
         Ok(Self { _file: file })
