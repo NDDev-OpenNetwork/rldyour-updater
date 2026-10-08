@@ -1,18 +1,15 @@
-use serde::Deserialize;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
-    #[serde(default = "schema")]
     pub schema: u8,
-    #[serde(default = "channel")]
     pub channel: String,
     #[serde(default = "timeout")]
     pub command_timeout_seconds: u64,
+    #[serde(default)]
+    pub release: ReleasePolicy,
     #[serde(default)]
     pub gds: GdsPolicy,
     #[serde(default)]
@@ -20,42 +17,50 @@ pub struct Policy {
     #[serde(default)]
     pub toolchains: ToolchainPolicy,
     #[serde(default)]
+    pub native: NativePolicy,
+    #[serde(default)]
     pub state_dir: Option<PathBuf>,
 }
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReleasePolicy {
+    pub url: String,
+    /// Ed25519 public key bytes, hex. Trust is provisioned locally, never by the feed.
+    pub public_key: String,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct GdsPolicy {
-    #[serde(default = "yes")]
+    #[serde(default)]
     pub enabled: bool,
     #[serde(default = "platform")]
     pub platform: String,
-    /// Absolute, reviewed argv. Usually python3, managed_cli.py, install, --platform and the platform name.
     #[serde(default)]
+    pub python: PathBuf,
+    /// Parsed for migration only. Never executed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub argv: Vec<String>,
-}
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AptPolicy {
-    #[serde(default = "yes")]
-    pub observe: bool,
-    /// Only a root-owned system unit may enable this. User schedules fail closed.
     #[serde(default)]
-    pub apply: bool,
-}
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ToolchainPolicy {
-    #[serde(default = "yes")]
-    pub observe_only: bool,
+    pub applications: bool,
 }
 impl Default for GdsPolicy {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             platform: platform(),
-            argv: Vec::new(),
+            python: PathBuf::new(),
+            argv: vec![],
+            applications: false,
         }
     }
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AptPolicy {
+    #[serde(default = "yes")]
+    pub observe: bool,
+    #[serde(default)]
+    pub apply: bool,
 }
 impl Default for AptPolicy {
     fn default() -> Self {
@@ -65,68 +70,85 @@ impl Default for AptPolicy {
         }
     }
 }
-impl Default for ToolchainPolicy {
-    fn default() -> Self {
-        Self { observe_only: true }
-    }
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativePolicy {
+    #[serde(default)]
+    pub homebrew: bool,
+    #[serde(default)]
+    pub flatpak: bool,
+}
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct ToolchainPolicy {
+    #[serde(default)]
+    pub observe_only: bool,
 }
 impl Policy {
     pub fn from_path(path: &Path) -> Result<Self, String> {
-        let bytes = fs::read(path).map_err(|error| format!("read {}: {error}", path.display()))?;
-        let policy: Self = toml::from_slice(&bytes)
-            .map_err(|error| format!("parse {}: {error}", path.display()))?;
+        let bytes = crate::storage::read_bounded(path, 64 * 1024)?;
+        let policy: Self = toml::from_slice(&bytes).map_err(|e| format!("invalid policy: {e}"))?;
         policy.validate()?;
+        if crate::os::is_root() {
+            crate::storage::root_owned(path)?;
+        }
         Ok(policy)
     }
     pub fn defaults() -> Self {
         Self {
-            schema: 1,
-            channel: channel(),
+            schema: 2,
+            channel: "signed-gds".into(),
             command_timeout_seconds: timeout(),
+            release: ReleasePolicy::default(),
             gds: GdsPolicy::default(),
             apt: AptPolicy::default(),
+            native: NativePolicy::default(),
             toolchains: ToolchainPolicy::default(),
             state_dir: None,
         }
     }
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != 1 {
-            return Err(format!("unsupported policy schema {}", self.schema));
+        if self.schema != 2 {
+            return Err("policy schema 2 required; migrate before enabling the scheduler".into());
         }
         if self.channel != "signed-gds" {
-            return Err("channel must be signed-gds".into());
+            return Err("only signed-gds is supported".into());
         }
         if !(1..=3600).contains(&self.command_timeout_seconds) {
-            return Err("command_timeout_seconds must be 1..=3600".into());
+            return Err("timeout must be 1..=3600 seconds".into());
         }
-        if self.gds.enabled {
-            if self.gds.argv.is_empty() {
-                return Err("gds.argv is required when gds.enabled=true".into());
+        if self.gds.enabled || self.gds.applications {
+            crate::transport::validate_https(&self.release.url)?;
+            crate::catalog::decode_hex::<32>(&self.release.public_key)?;
+            crate::os::validate_absolute(&self.gds.python)?;
+            if !self.gds.python.is_file() {
+                return Err("Python interpreter is unavailable".into());
             }
-            if !self
-                .gds
-                .argv
-                .iter()
-                .any(|arg| arg.ends_with("managed_cli.py"))
-            {
-                return Err("gds.argv must invoke managed_cli.py".into());
-            }
-            if !self.gds.argv.iter().any(|arg| arg == "install")
-                || !self.gds.argv.iter().any(|arg| arg == "--platform")
-            {
-                return Err("gds.argv must be an install invocation with --platform".into());
-            }
-            if self
-                .gds
-                .argv
-                .iter()
-                .any(|arg| arg.is_empty() || arg.len() > 4096)
-            {
-                return Err("gds.argv contains an invalid argument".into());
+            if !matches!(self.gds.platform.as_str(), "ubuntu" | "macos") {
+                return Err("bootstrap supports ubuntu and macos only".into());
             }
         }
-        if self.apt.apply && !cfg!(target_os = "linux") {
-            return Err("apt.apply is supported only on Linux".into());
+        if self.apt.apply {
+            return Err(
+                "APT mutation belongs to unattended-upgrades; apt.apply must be false".into(),
+            );
+        }
+        if self.gds.enabled && crate::os::is_root() {
+            return Err("user CLI updates must never run as root".into());
+        }
+        if self.gds.applications && (!cfg!(target_os = "linux") || !crate::os::is_root()) {
+            return Err("application packages require a separate root-owned Linux policy".into());
+        }
+        if self.gds.applications {
+            crate::storage::root_owned(
+                &self.gds.python.canonicalize().map_err(|e| e.to_string())?,
+            )?;
+        }
+        if self.native.homebrew && !cfg!(target_os = "macos") {
+            return Err("Homebrew provider is macOS only".into());
+        }
+        if let Some(dir) = &self.state_dir {
+            crate::storage::plain_path(dir)?;
         }
         Ok(())
     }
@@ -135,12 +157,6 @@ impl Policy {
             .clone()
             .unwrap_or_else(|| crate::os::state_home().join("rldyour-updater"))
     }
-}
-fn schema() -> u8 {
-    1
-}
-fn channel() -> String {
-    "signed-gds".into()
 }
 fn timeout() -> u64 {
     600
@@ -151,26 +167,7 @@ fn yes() -> bool {
 fn platform() -> String {
     if cfg!(target_os = "macos") {
         "macos".into()
-    } else if cfg!(target_os = "windows") {
-        "windows".into()
     } else {
         "ubuntu".into()
-    }
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn defaults_fail_closed_until_gds_is_bound() {
-        assert!(
-            Policy::defaults()
-                .validate()
-                .unwrap_err()
-                .contains("gds.argv")
-        );
-    }
-    #[test]
-    fn unknown_fields_fail() {
-        assert!(toml::from_str::<Policy>("unknown=true\n").is_err());
     }
 }

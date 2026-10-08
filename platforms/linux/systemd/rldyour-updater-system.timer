@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily verified desktop package update
+[Timer]
+OnCalendar=*-*-* 04:45:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=rldyour-updater-system.service
+[Install]
+WantedBy=timers.target

@@ -38,3 +38,23 @@ pub fn validate_absolute(path: &Path) -> Result<(), String> {
         Err(format!("path is not absolute: {}", path.display()))
     }
 }
+pub fn is_root() -> bool {
+    #[cfg(unix)]
+    {
+        unsafe { libc::geteuid() == 0 }
+    }
+    #[cfg(not(unix))]
+    {
+        false
+    }
+}
+pub fn curl_binary() -> &'static str {
+    #[cfg(unix)]
+    {
+        "/usr/bin/curl"
+    }
+    #[cfg(windows)]
+    {
+        "C:\\Windows\\System32\\curl.exe"
+    }
+}

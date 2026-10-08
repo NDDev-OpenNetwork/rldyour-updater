@@ -1,6 +1,6 @@
 [package]
 name = "rldyour-updater"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.88"
 license = "AGPL-3.0-or-later"
@@ -16,6 +16,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1.1"
 fs2 = "0.4"
+ed25519-dalek = { version = "2", features = ["pkcs8", "pem"] }
+sha2 = "0.10"
+tempfile = "3"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

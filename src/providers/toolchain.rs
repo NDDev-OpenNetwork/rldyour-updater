@@ -3,11 +3,16 @@ use std::{path::PathBuf, time::Duration};
 
 pub fn run<R: CommandRunner>(policy: &Policy, runner: &R) -> ActionResult {
     let mut lines = Vec::new();
+    let mut failed = false;
     for (name, program) in [
         ("vllm", user_binary("vllm")),
         ("ollama", ollama_binary()),
         ("nvcc", nvcc_binary()),
     ] {
+        if !program.exists() {
+            lines.push(format!("{name}: not-installed"));
+            continue;
+        }
         let argv = vec![program.to_string_lossy().into_owned(), "--version".into()];
         let output = runner.run(
             &argv,
@@ -17,20 +22,16 @@ pub fn run<R: CommandRunner>(policy: &Policy, runner: &R) -> ActionResult {
         let detail = if output.ok {
             output.stdout.lines().next().unwrap_or("present").to_owned()
         } else {
+            failed = true;
             let reason = output.stderr.lines().next().unwrap_or("command failed");
             format!("unavailable or needs review ({reason})")
         };
         lines.push(format!("{name}: {detail}"));
     }
-    ActionResult {
-        action: "toolchain-observe".into(),
-        ok: true,
-        changed: false,
-        observed: true,
-        detail: lines.join("; "),
-        stdout: String::new(),
-        stderr: String::new(),
-        exit_code: None,
+    if failed {
+        ActionResult::failed("toolchain-observe", lines.join("; "))
+    } else {
+        ActionResult::observed("toolchain-observe", lines.join("; "))
     }
 }
 

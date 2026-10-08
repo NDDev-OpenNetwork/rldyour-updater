@@ -1,37 +1,13 @@
 use crate::model::RunReport;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-use std::{fs, io::Write, path::Path};
+use std::path::Path;
 pub fn read(path: &Path) -> Result<RunReport, String> {
-    serde_json::from_slice(&fs::read(path).map_err(|e| format!("read report: {e}"))?)
-        .map_err(|e| format!("parse report: {e}"))
+    serde_json::from_slice(&crate::storage::read_bounded(path, 4 * 1024 * 1024)?)
+        .map_err(|e| e.to_string())
 }
 pub fn write_atomic(report: &RunReport, path: &Path) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| "report has no parent".to_string())?;
-    fs::create_dir_all(parent).map_err(|e| format!("create report dir: {e}"))?;
-    if parent
-        .symlink_metadata()
-        .map_err(|e| format!("inspect report dir: {e}"))?
-        .is_symlink()
-    {
-        return Err("report directory is redirected".into());
+    let bytes = serde_json::to_vec_pretty(report).map_err(|e| e.to_string())?;
+    if bytes.len() > 4 * 1024 * 1024 {
+        return Err("report exceeds bound".into());
     }
-    if let Ok(metadata) = path.symlink_metadata()
-        && (metadata.is_symlink() || !metadata.is_file())
-    {
-        return Err("report destination is not a regular file".into());
-    }
-    let temp = parent.join(format!(".last-run-{}.tmp", std::process::id()));
-    let bytes = serde_json::to_vec_pretty(report).map_err(|e| format!("encode report: {e}"))?;
-    let mut file = fs::File::create(&temp).map_err(|e| format!("create report temp: {e}"))?;
-    file.write_all(&bytes)
-        .map_err(|e| format!("write report: {e}"))?;
-    file.sync_all().map_err(|e| format!("sync report: {e}"))?;
-    fs::rename(&temp, path).map_err(|e| format!("publish report: {e}"))?;
-    #[cfg(unix)]
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
-        .map_err(|e| format!("protect report: {e}"))?;
-    Ok(())
+    crate::storage::replace(path, &bytes)
 }

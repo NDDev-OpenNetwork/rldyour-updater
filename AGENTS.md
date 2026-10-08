@@ -1,40 +1,36 @@
-# rldyour-updater — agent instructions
+# rldyour-updater — agent contract
 
-Rust 2024 coordinator for workstation updates. It is a public OpenNetwork
-repository and must contain no host, account, estate or credential data.
+Rust 2024 update coordinator; current release 0.2.0, policy schema 2. Public code
+and synthetic fixtures only. Private topology, credentials and observations stay
+outside this repository. Do not add a general system-health aggregator.
 
-## Ownership model
+## Boundaries
 
-- GDS owns the eight vendor CLIs. The updater may invoke only the local
-  estate's reviewed managed_cli.py install --platform ... argv.
-- APT owns Debian/Ubuntu packages and its own locks. The updater observes the
-  plan by default; root mutation is an explicit system-policy decision and is
-  never enabled by the user installer.
-- Snap, Flatpak, Homebrew, vendor self-updaters, CUDA, vLLM and model stores
-  remain their own owners or observation-only until a signed provider contract
-  exists. The updater never downloads arbitrary release assets.
-- Vendor configuration, credentials, sessions and project trees are outside
-  the updater boundary.
-
-## Invariants
-
-- plan is read-only.
-- apply serializes one run with a private lock, executes only argv vectors,
-  bounds output and time, and atomically replaces one private report.
-- A malformed or incomplete policy fails closed.
-- channel is signed-gds; a GDS action must contain managed_cli.py, install,
-  and --platform.
-- No shell interpolation, curl | sh, arbitrary manifest command, recursive
-  file deletion, backup archive or automatic reboot.
-- An update report distinguishes observation, mutation and failure. A
-  successful schedule is not evidence that a component was updated.
+- Signed catalogue, fixed reviewed bootstrap entrypoints and SHA256 source table
+  precede execution. Developer checkouts and legacy policy argv never execute.
+- GDS owns user CLIs/launchers; user updates must never run as root. Configuration,
+  authentication and model sessions are preserved.
+- Root application policy is separate and root-owned; only installed approved
+  apps update. Refuse downgrades, removals, malformed identities and unknown state.
+- APT/Snap retain native schedulers. Optional Homebrew respects pins and skips
+  managed harnesses and Herdr; no forced app quit.
+- Do not rebuild CUDA/vLLM/model environments blindly or restart healthy servers.
+- No automatic reboot, arbitrary shell command, remote stream to shell, backups
+  of user data, inferred deletion or silent trust reset.
+- Output, deadlines, inherited descendant pipes, filesystem paths and state
+  sizes are bounded. Lock/report destinations are validated before mutation.
+- Reports distinguish verified/update/native-owner/failed; partial change is
+  unknown, never an invented successful update.
 
 ## Verification
 
     cargo fmt --check
     cargo test --locked
     cargo clippy --locked --all-targets -- -D warnings
+    cargo audit
     shellcheck install.sh uninstall.sh
 
-Use synthetic command-runner fixtures for mutation tests. Do not inspect real
-clipboard, credentials, model sessions or private estate data.
+CI runs native tests on Linux/macOS/Windows and the MSRV 1.88 check. Windows has
+native contained processes but this release has no bootstrap/scheduler support
+there. Synthetic negative tests must prove signature, expiry, sequence, path,
+output/deadline and provider receipt refusal. Do not test against real user data.

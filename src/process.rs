@@ -16,6 +16,7 @@ pub struct Output {
     pub stderr: String,
     pub stdout_truncated: bool,
     pub stderr_truncated: bool,
+    pub exit_code: Option<i32>,
 }
 fn drain(
     mut source: impl Pipe,
@@ -119,10 +120,8 @@ fn contained_run(command: &mut Command, timeout: Duration) -> Result<Output, Str
         stderr: String::from_utf8_lossy(&stderr).trim().into(),
         stdout_truncated,
         stderr_truncated,
+        exit_code: status.code(),
     };
-    if !status.success() {
-        return Err(format!("native tool failed ({status}): {}", output.stderr));
-    }
     Ok(output)
 }
 
@@ -132,6 +131,7 @@ pub struct CommandOutput {
     pub stdout: String,
     pub stderr: String,
     pub truncated: bool,
+    pub exit_code: Option<i32>,
 }
 pub trait CommandRunner {
     fn run(
@@ -155,6 +155,7 @@ impl CommandRunner for RealCommandRunner {
                 stdout: String::new(),
                 stderr: "empty argv".into(),
                 truncated: false,
+                exit_code: None,
             };
         };
         let mut command = Command::new(program);
@@ -164,16 +165,18 @@ impl CommandRunner for RealCommandRunner {
         }
         match contained_run(&mut command, timeout) {
             Ok(output) => CommandOutput {
-                ok: true,
+                ok: output.exit_code == Some(0),
                 stdout: output.stdout,
                 stderr: output.stderr,
                 truncated: output.stdout_truncated || output.stderr_truncated,
+                exit_code: output.exit_code,
             },
             Err(error) => CommandOutput {
                 ok: false,
                 stdout: String::new(),
                 stderr: error,
                 truncated: false,
+                exit_code: None,
             },
         }
     }

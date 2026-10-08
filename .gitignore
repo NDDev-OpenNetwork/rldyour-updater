@@ -1,3 +1,4 @@
 /target/
+/.release-work/
 *.swp
 .DS_Store
