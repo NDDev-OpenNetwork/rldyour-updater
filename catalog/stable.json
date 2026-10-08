@@ -1,10 +1,10 @@
 {
   "payload": {
     "schema": 1,
-    "sequence": 1,
-    "issued_at": 1791479277,
-    "expires_at": 1794071277,
-    "bootstrap_commit": "da69768b8f52fb450ea592701a628a18204902eb",
+    "sequence": 2,
+    "issued_at": 1791483866,
+    "expires_at": 1794075866,
+    "bootstrap_commit": "48aa7ba22f7eeed55a9a5dd21ce99829a69fe393",
     "files": [
       {
         "path": "scripts/managed_cli.py",
@@ -28,8 +28,8 @@
       },
       {
         "path": "scripts/ubuntu/harness-apps.py",
-        "bytes": 17761,
-        "sha256": "5645129a57675218d72b507c141bee5680bbc4d2d2c59692180f99fd535165d2"
+        "bytes": 18368,
+        "sha256": "e07252ab491d23e1fd00cab9c4deea868707c1f470768eea97678bb77e77b842"
       },
       {
         "path": "config/harness-apps.json",
@@ -46,7 +46,22 @@
         "sha256": "41c86c0caf18190bce58a7f603fd466c9e3fbfef2b85f837635a0453401affba"
       }
     ],
-    "updater_binaries": []
+    "updater_binaries": [
+      {
+        "platform": "linux/x86_64",
+        "version": "0.2.1",
+        "url": "https://github.com/NDDev-OpenNetwork/rldyour-updater/releases/download/v0.2.1/rldyour-updater-v0.2.1-linux-x86_64",
+        "bytes": 1142616,
+        "sha256": "5e0468b5c5c2dbbf3855a51738ae507bd06c892456ab3e0c23d125fcf3666c64"
+      },
+      {
+        "platform": "macos/arm64",
+        "version": "0.2.1",
+        "url": "https://github.com/NDDev-OpenNetwork/rldyour-updater/releases/download/v0.2.1/rldyour-updater-v0.2.1-macos-arm64",
+        "bytes": 871616,
+        "sha256": "95136be7dcdc6045c101fad92fb428cb20e0cdb057ab7d28dd5b61b0030da56f"
+      }
+    ]
   },
-  "signature": "0d6ebbf8ec7ae3232863073fb62800a89b6aa8f8c9282acadc729745461327dbcb6fdec8e7749b3c123960b7a960890e36cb36c93085d40d405789cb4bbca701"
+  "signature": "353685365dec03e23fe88b8f3c700a913ec1ddef1ca134a8f9b4bcab6e45a953ef93fcf978aca77fd59d6c8017ee3b6a002621c8d82660dfe89a29a899a95109"
 }
