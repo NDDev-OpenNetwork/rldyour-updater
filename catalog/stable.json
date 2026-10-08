@@ -1,0 +1,52 @@
+{
+  "payload": {
+    "schema": 1,
+    "sequence": 1,
+    "issued_at": 1791479277,
+    "expires_at": 1794071277,
+    "bootstrap_commit": "da69768b8f52fb450ea592701a628a18204902eb",
+    "files": [
+      {
+        "path": "scripts/managed_cli.py",
+        "bytes": 21134,
+        "sha256": "3e00a7a9dea0f1c061e5eb29f0358500d35b357cc71426d4e02d41136718d465"
+      },
+      {
+        "path": "scripts/ai_launchers.py",
+        "bytes": 4016,
+        "sha256": "0f094658e30d50ee58f50fe68c2768c53b4a45e054f9e4ed9805098d61330f06"
+      },
+      {
+        "path": "config/rldyour-contract.json",
+        "bytes": 52375,
+        "sha256": "de5ffbe33b2481a038391350c928f5463dc2d0e8df112a3dbeb252cbd76205f6"
+      },
+      {
+        "path": "config/ai-launchers.json",
+        "bytes": 1895,
+        "sha256": "084dd697669685c8215355005d87392c0fb59c378fe5ceaefbcc7814bc90c8bc"
+      },
+      {
+        "path": "scripts/ubuntu/harness-apps.py",
+        "bytes": 17761,
+        "sha256": "5645129a57675218d72b507c141bee5680bbc4d2d2c59692180f99fd535165d2"
+      },
+      {
+        "path": "config/harness-apps.json",
+        "bytes": 3960,
+        "sha256": "0ab13e3d345a1f1231f53f96927d72e0c8e6c1ba7f0d1d3bb4610bc7250efc14"
+      }
+    ],
+    "debs": [
+      {
+        "package": "happ",
+        "version": "4.3.0-318",
+        "url": "https://github.com/Happ-proxy/happ-desktop/releases/download/4.3.0/Happ.linux.x64.deb",
+        "bytes": 79512212,
+        "sha256": "41c86c0caf18190bce58a7f603fd466c9e3fbfef2b85f837635a0453401affba"
+      }
+    ],
+    "updater_binaries": []
+  },
+  "signature": "0d6ebbf8ec7ae3232863073fb62800a89b6aa8f8c9282acadc729745461327dbcb6fdec8e7749b3c123960b7a960890e36cb36c93085d40d405789cb4bbca701"
+}

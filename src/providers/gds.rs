@@ -1,86 +1,171 @@
-use crate::{config::Policy, model::ActionResult, process::CommandRunner};
-use std::{path::Path, time::Duration};
+use crate::{
+    config::Policy, model::ActionResult, process::CommandRunner, release::VerifiedRelease,
+};
+use serde::Deserialize;
+use std::time::Duration;
 
-pub fn run<R: CommandRunner>(policy: &Policy, runner: &R) -> ActionResult {
-    let argv = &policy.gds.argv;
-    let valid_shape = argv.iter().any(|arg| arg.ends_with("managed_cli.py"))
-        && argv.iter().any(|arg| arg == "install")
-        && argv.iter().any(|arg| arg == "--platform");
-    if !valid_shape {
-        return ActionResult {
-            action: "gds-install".into(),
-            ok: false,
-            changed: false,
-            observed: false,
-            detail: "refused: policy is not a managed_cli.py install invocation".into(),
-            stdout: String::new(),
-            stderr: String::new(),
-            exit_code: None,
-        };
+#[derive(Deserialize)]
+struct Receipt {
+    schema: u8,
+    components: Vec<Component>,
+    vendor_configuration_mutated: bool,
+}
+#[derive(Deserialize)]
+struct Component {
+    id: String,
+    changed: bool,
+}
+
+pub fn run<R: CommandRunner>(
+    policy: &Policy,
+    source: &VerifiedRelease,
+    runner: &R,
+) -> ActionResult {
+    let root = source.root();
+    let script = if policy.gds.applications {
+        root.join("scripts/ubuntu/harness-apps.py")
+    } else {
+        root.join("scripts/managed_cli.py")
+    };
+    let mut argv = vec![
+        policy.gds.python.to_string_lossy().into_owned(),
+        "-I".into(),
+        "-B".into(),
+        script.to_string_lossy().into_owned(),
+    ];
+    let action = if policy.gds.applications {
+        "verified-applications"
+    } else {
+        "gds-cli"
+    };
+    if policy.gds.applications {
+        argv.extend(["update-verified".into(), "--json".into()]);
+    } else {
+        argv.extend([
+            "install".into(),
+            "--platform".into(),
+            policy.gds.platform.clone(),
+            "--json".into(),
+        ]);
     }
-    let cwd = argv.iter().find_map(|arg| {
-        Path::new(arg)
-            .parent()
-            .filter(|_| arg.ends_with("managed_cli.py"))
-    });
     let output = runner.run(
-        argv,
-        cwd,
+        &argv,
+        Some(root),
         Duration::from_secs(policy.command_timeout_seconds),
     );
-    if !output.ok {
-        return ActionResult {
-            action: "gds-install".into(),
-            ok: false,
-            changed: false,
-            observed: true,
-            detail: "signed GDS managed CLI install failed".into(),
-            stdout: output.stdout,
-            stderr: output.stderr,
-            exit_code: None,
-        };
+    if !output.ok || output.truncated {
+        let mut result = ActionResult::failed(
+            action,
+            "verified installer failed or output was incomplete; partial changes require review",
+        );
+        result.stdout = output.stdout;
+        result.stderr = output.stderr;
+        result.exit_code = output.exit_code;
+        result.output_truncated = output.truncated;
+        result.changed = None;
+        return result;
     }
-    let script_index = argv.iter().position(|arg| arg.ends_with("managed_cli.py"));
-    let companion = script_index.and_then(|index| {
-        let script = Path::new(&argv[index]);
-        let companion = script.parent()?.join("ai_launchers.py");
-        companion.is_file().then(|| {
-            let python = argv.first().cloned().unwrap_or_else(|| "python3".into());
+    let receipt: Receipt = match output
+        .stdout
+        .lines()
+        .last()
+        .and_then(|line| serde_json::from_str(line).ok())
+    {
+        Some(value) => value,
+        None => {
+            return ActionResult::failed(
+                action,
+                "installer did not produce a valid structured receipt",
+            );
+        }
+    };
+    let expected: std::collections::BTreeSet<_> = if policy.gds.applications {
+        [
+            "antigravity",
+            "claude-code",
+            "codex",
+            "cursor",
+            "grok-build",
+            "opencode",
+            "pi",
+            "devin",
+        ]
+        .into_iter()
+        .collect()
+    } else {
+        [
+            "antigravity",
+            "claude-code",
+            "codex",
+            "cursor",
+            "grok-build",
+            "opencode",
+            "pi",
+            "devin",
+            "gddy",
+        ]
+        .into_iter()
+        .collect()
+    };
+    let actual: std::collections::BTreeSet<_> =
+        receipt.components.iter().map(|c| c.id.as_str()).collect();
+    if receipt.schema != 1
+        || receipt.vendor_configuration_mutated
+        || actual != expected
+        || receipt.components.len() != expected.len()
+    {
+        return ActionResult::failed(
+            action,
+            "installer receipt contradicts the signed component contract",
+        );
+    }
+    let mut result = ActionResult::observed(
+        action,
+        "signed catalogue sources and component receipts verified",
+    );
+    result.changed = Some(receipt.components.iter().any(|c| c.changed));
+    result.state = if result.changed == Some(true) {
+        "updated".into()
+    } else {
+        "verified".into()
+    };
+    result.stdout = output.stdout;
+    result.stderr = output.stderr;
+    result.exit_code = output.exit_code;
+    if !policy.gds.applications {
+        let script = root.join("scripts/ai_launchers.py");
+        let args = |verb: &str| {
             vec![
-                python,
-                companion.to_string_lossy().into_owned(),
-                "install".into(),
+                policy.gds.python.to_string_lossy().into_owned(),
+                "-I".into(),
+                "-B".into(),
+                script.to_string_lossy().into_owned(),
+                verb.into(),
             ]
-        })
-    });
-    let (stdout, stderr, companion_ok) = if let Some(companion_argv) = companion {
-        let companion_output = runner.run(
-            &companion_argv,
-            companion_argv
-                .get(1)
-                .and_then(|value| Path::new(value).parent()),
+        };
+        let verification = runner.run(
+            &args("verify"),
+            Some(root),
             Duration::from_secs(policy.command_timeout_seconds),
         );
-        (
-            format!("{}\n{}", output.stdout, companion_output.stdout),
-            format!("{}\n{}", output.stderr, companion_output.stderr),
-            companion_output.ok,
-        )
-    } else {
-        (output.stdout, output.stderr, true)
-    };
-    ActionResult {
-        action: "gds-install".into(),
-        ok: companion_ok,
-        changed: companion_ok,
-        observed: true,
-        detail: if companion_ok {
-            "signed GDS managed CLI install and launcher refresh completed".into()
-        } else {
-            "GDS install completed but launcher refresh failed".into()
-        },
-        stdout,
-        stderr,
-        exit_code: None,
+        if !verification.ok {
+            let install = runner.run(
+                &args("install"),
+                Some(root),
+                Duration::from_secs(policy.command_timeout_seconds),
+            );
+            if !install.ok || install.truncated {
+                result.ok = false;
+                result.state = "failed".into();
+                result.detail = "CLI verified, launcher refresh failed".into();
+                result.stderr = install.stderr;
+                result.exit_code = install.exit_code;
+                result.changed = None;
+            } else {
+                result.changed = Some(true);
+                result.state = "updated".into();
+            }
+        }
     }
+    result
 }

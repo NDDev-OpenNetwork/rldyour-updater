@@ -1,21 +1,24 @@
-schema = 1
+schema = 2
 channel = "signed-gds"
 command_timeout_seconds = 600
 
+[release]
+url = "https://raw.githubusercontent.com/NDDev-OpenNetwork/rldyour-updater/main/catalog/stable.json"
+public_key = "REPLACE_WITH_REVIEWED_64_HEX_PUBLIC_KEY"
+
 [gds]
 enabled = true
+applications = false
 platform = "ubuntu"
-argv = [
-  "/usr/bin/python3",
-  "/home/you/Developer/NDDev-it-com/github-device-sync-estate/modules/macos-ubuntu-bootstrap/scripts/managed_cli.py",
-  "install",
-  "--platform",
-  "ubuntu",
-]
+python = "/usr/bin/python3"
 
 [apt]
 observe = true
 apply = false
+
+[native]
+homebrew = false
+flatpak = false
 
 [toolchains]
 observe_only = true

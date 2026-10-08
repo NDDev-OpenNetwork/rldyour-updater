@@ -1,68 +1,56 @@
 # rldyour-updater
 
-The fourth OpenNetwork workstation tool coordinates updates without becoming a
-second package manager:
+Rust 2024 coordinator for signed workstation updates. Current version: **0.2.0**.
+It runs as a short-lived scheduled process, with no model supervisor or general
+system diagnostic aggregation.
 
-| Owner | What the updater does |
+## Update ownership
+
+| Component | Owner and behavior |
 | --- | --- |
-| Signed GDS release | Applies the pinned estate managed_cli.py install --platform ... transaction for the eight CLIs and refreshes no vendor settings. |
-| Ubuntu APT / unattended-upgrades | Observes the upgrade plan; the stock root apt-daily-upgrade.timer remains the mutation owner. A separately reviewed root policy may opt in to apt-get update and apt-get --with-new-pkgs upgrade. |
-| CUDA, vLLM, Ollama, model stores | Reports presence/version only. These need a compatibility-aware signed release before unattended mutation. |
-| macOS Homebrew and launchd | The schedule is installed, but vendor package mutation is not guessed. Add a provider only with an ownership and pin contract. |
+| Eight vendor CLIs and GoDaddy CLI | Signed catalogue binds an exact bootstrap commit and SHA256/length of every installer/config file. Installer verifies the complete program payload and returns actual change receipts. |
+| Full-auto launchers | Verified bootstrap companion; unchanged launchers are checked without rewriting. No vendor configuration or credentials are edited. |
+| Ubuntu repositories, drivers and ESM | Native unattended-upgrades and stock APT timers. Updater only observes their package plan. Third-party repository eligibility must be explicitly configured. |
+| Snap and Telegram | Their native update mechanisms; updater does not create a competing owner. |
+| OpenCode Desktop, standalone ChatGPT package, Antigravity | Separate root-owned signed application transaction updates only already installed catalogue apps, rejects downgrades and disallows package removal. |
+| Other reviewed Debian apps, including Happ | Signed package identity/version/size/SHA256 in the catalogue; validated before apt; absent packages are preserved. |
+| macOS Homebrew apps/tools | Optional native owner provider, respecting pins, skipping GDS-managed harnesses and Herdr. Casks require hashes and are never forcibly quit. |
+| CUDA/vLLM/Ollama/model stores | Existing native repository maintenance where applicable, otherwise explicit compatibility review. No blind Python environment rebuild, model download or running server restart. |
 
-This makes automatic updates reproducible: a daily user timer runs the exact
-signed GDS release already pinned by the private estate, while OS package
-updates continue through their native scheduler. There is no curl | sh,
-arbitrary download URL, vendor configuration edit, forced reboot, or
-passwordless sudo grant.
+Automatic means **consuming new approved catalogue releases**. Vendor releases
+are not silently promoted to approved releases. Catalogue publication is a
+maintainer operation, with a maximum 31-day lifetime; clients fail visibly on
+expiry rather than executing stale or unsigned content. This is a domain-separated
+Ed25519 protocol with rollback/freeze checks, **not a full TUF implementation**.
+
+## Installation
+
+Review the source and signer public-key fingerprint before initial provisioning:
+
+    RLDYOUR_UPDATER_PUBLIC_KEY=<reviewed-Ed25519-public-key-hex> ./install.sh
+
+The trusted key is written to the local policy, never learned from an update
+response. Source installs use Cargo.lock. Linux uses a persistent randomized user
+timer; macOS uses a launchd calendar agent. The normal installer never uses sudo
+or arms root package updates. To enable system applications, an administrator
+installs the same binary in /usr/local/bin, provisions a root-owned policy in
+/etc/rldyour-updater/config.toml with gds.applications=true and gds.enabled=false,
+and enables the included rldyour-updater-system.timer.
+
+Existing schema-1 policies require explicit migration to schema 2. Legacy argv
+is never executed. A bad policy never enables the scheduler. User/root reports,
+locks and acceptance state are separate. No backups of user files are made.
 
 ## Commands
 
-    rldyour-updater doctor
-    rldyour-updater plan
-    rldyour-updater apply
-    rldyour-updater status --json
+    rldyour-updater plan --json     # policy-only, read-only, no network
+    rldyour-updater apply --json    # fetch, authenticate, apply, record
+    rldyour-updater status --json   # last actual outcome
+    rldyour-updater doctor          # updater policy only
 
-plan never launches a provider. apply uses a private lock and writes only
-$XDG_STATE_HOME/rldyour-updater/last-run.json (normally
-~/.local/state/rldyour-updater/last-run.json).
+Reports distinguish verified, updated, native-owner, not-installed and failed.
+changed=null means the native owner or failed partial transaction cannot establish
+an exact mutation result. Success is never inferred from scheduler registration.
+Root application status uses --config /etc/rldyour-updater/config.toml.
 
-## Policy
-
-The installer creates $XDG_CONFIG_HOME/rldyour-updater/config.toml. It binds
-GDS only when it finds a local estate checkout and otherwise leaves GDS
-disabled with a clear doctor error. A valid Ubuntu policy looks like:
-
-    schema = 1
-    channel = "signed-gds"
-    command_timeout_seconds = 600
-
-    [gds]
-    enabled = true
-    platform = "ubuntu"
-    argv = [
-      "/usr/bin/python3",
-      "/home/you/Developer/NDDev-it-com/github-device-sync-estate/modules/macos-ubuntu-bootstrap/scripts/managed_cli.py",
-      "install",
-      "--platform",
-      "ubuntu",
-    ]
-
-    [apt]
-    observe = true
-    apply = false
-
-    [toolchains]
-    observe_only = true
-
-The GDS script itself verifies exact reviewed bytes and its signed/pinned
-release contract. The Rust tool does not copy or expose any credentials.
-
-## Install
-
-    ./install.sh
-
-The installer builds with the locked Cargo graph, installs the user binary and
-arms a daily systemd user timer on Linux or a launchd user agent on macOS. It
-does not use sudo. uninstall.sh removes only this binary and schedule; policy
-and the last report are retained for review.
+See [architecture](docs/architecture.md) and [publishing](docs/publishing.md).
