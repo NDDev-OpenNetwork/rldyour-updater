@@ -1,0 +1,4 @@
+# Keep the updater aligned with the workstation tools' supported Rust floor.
+[toolchain]
+channel = "1.99.0"
+components = ["rustfmt", "clippy"]

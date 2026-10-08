@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenNetwork signed-release update coordinator
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/rldyour-updater apply
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.config/rldyour-updater %h/.local/state/rldyour-updater %h/.local/share/rldyour %h/.local/bin

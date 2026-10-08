@@ -1,0 +1,21 @@
+schema = 1
+channel = "signed-gds"
+command_timeout_seconds = 600
+
+[gds]
+enabled = true
+platform = "ubuntu"
+argv = [
+  "/usr/bin/python3",
+  "/home/you/Developer/NDDev-it-com/github-device-sync-estate/modules/macos-ubuntu-bootstrap/scripts/managed_cli.py",
+  "install",
+  "--platform",
+  "ubuntu",
+]
+
+[apt]
+observe = true
+apply = false
+
+[toolchains]
+observe_only = true
