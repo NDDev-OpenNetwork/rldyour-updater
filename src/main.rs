@@ -86,6 +86,7 @@ fn main() -> Result<(), String> {
             policy.release.public_key = public_key;
             policy.toolchains.observe_only = cfg!(target_os = "linux") && !system_apps;
             policy.native.homebrew = cfg!(target_os = "macos") && !system_apps;
+            policy.native.max_updates_per_run = 10;
             if system_apps {
                 policy.state_dir = Some("/var/lib/rldyour-updater".into());
             }

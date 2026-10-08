@@ -96,6 +96,9 @@ pub fn run<R: CommandRunner>(policy: &Policy, runner: &R) -> Vec<ActionResult> {
                 results.push(result);
                 continue;
             }
+            // Bound a bootstrap backlog; remaining candidates stay visible to the
+            // native owner and will be selected by subsequent scheduled runs.
+            names.truncate(policy.native.max_updates_per_run);
             let mut args = vec![root.into(), "upgrade".into(), kind.into()];
             if kind == "--cask" {
                 args.extend(["--no-quit".into(), "--require-sha".into()]);
